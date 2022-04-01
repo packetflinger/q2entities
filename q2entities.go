@@ -3,8 +3,11 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 )
 
 const (
@@ -38,11 +41,12 @@ func ReadLong(input []byte, start int) int32 {
 }
 
 /**
- * Make sure the first 4 bytes match the magic number
+ * Make sure the first 4 bytes match the magic number.
+ * If not, supplied file is not a valid bsp map.
  */
 func VerifyHeader(header []byte) {
 	if ReadLong(header, 0) != Magic {
-		panic("Invalid BPS file")
+		panic("Invalid BSP file")
 	}
 }
 
@@ -83,13 +87,54 @@ func GetEntityLump(f *os.File, offset int, length int) []byte {
 	return lump
 }
 
+/**
+ * Load each entity from the lump into a map
+ */
+func ParseEntities(ents string) map[string]int {
+	entcounts := map[string]int{}
+	lines := strings.Split(ents, "\n")
+
+	for _, v := range lines {
+		if strings.Contains(v, "classname") {
+			vparts := strings.Split(v, " ")
+			classlen := len(vparts[1])
+			classname := strings.ToLower(vparts[1][1 : classlen-1])
+			entcounts[classname]++
+		}
+	}
+
+	return entcounts
+}
+
+/**
+ * Sort the entities by key name and print them out
+ */
+func PrintSortedEntities(ents map[string]int) {
+	keys := []string{}
+	for k := range ents {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		fmt.Printf("%s: %d\n", k, ents[k])
+	}
+}
+
+/**
+ *
+ */
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Printf("Usage: %s <q2mapfile.bsp>\n", os.Args[0])
+	counts := flag.Bool("c", false, "Show collated and sorted entity counts")
+	flag.Parse()
+
+	bspname := flag.Arg(0)
+	if bspname == "" {
+		fmt.Printf("Usage: %s [-c] <q2mapfile.bsp>\n", os.Args[0])
 		return
 	}
 
-	bspname := os.Args[1]
 	bsp, err := os.Open(bspname)
 	check(err)
 
@@ -101,5 +146,11 @@ func main() {
 
 	offset, length := LocateEntityLump(header)
 	ents := GetEntityLump(bsp, offset, length)
-	fmt.Println(string(ents))
+
+	if *counts {
+		quantities := ParseEntities(string(ents))
+		PrintSortedEntities(quantities)
+	} else {
+		fmt.Println(string(ents))
+	}
 }
