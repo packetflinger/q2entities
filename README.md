@@ -12,4 +12,6 @@ To build for another OS or ARCH (ex: 32bit windows):
 `# GOOS=windows GOARCH=386 CGO_ENABLED=0 go build q2entities.go`
 
 ## Usage
-`# q2ents <map.bsp>`
+`# q2ents [-c] <map.bsp>`
+
+The `-c` flag will force a sorted count of each entity. If this flag is missing, the entire entity block will be printed to STDOUT.
